@@ -15,8 +15,17 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentManager;
 
 
+import com.android.volley.AuthFailureError;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
+
+import org.w3c.dom.Text;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -24,6 +33,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.BreakIterator;
+import java.util.HashMap;
+import java.util.Map;
 
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
@@ -31,14 +43,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     // partie qrcode
 
     Button scanBtn;
-    TextView messageText, messageFormat;
-    private Button btn_login, btn_register;
+    TextView messageText, messageFormat, resbox, resbox1,resbox2, resbox3, resbox4;
+    private RequestQueue queue;
 
     @Override
     public void onClick(View v) {
-        // we need to create the object
-        // of IntentIntegrator class
-        // which is the class of QR library
+
         IntentIntegrator intentIntegrator = new IntentIntegrator(this);
         intentIntegrator.setPrompt("Scan a barcode or QR Code");
         intentIntegrator.setOrientationLocked(true);
@@ -60,17 +70,49 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 messageText.setText(intentResult.getContents());
                 messageFormat.setText(intentResult.getFormatName());
 
-                String link = intentResult.getFormatName();
+                String link = intentResult.getContents();
 
-                try {
-                    get(link);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                RequestQueue queue = Volley.newRequestQueue(MainActivity.this);
+                //this is the url where you want to send the request
+                //TODO: replace with your own url to send request, as I am using my own localhost for this tutorial
+                String url = "http://192.168.1.55/pa2/Speed-Cash-Website/php/test_db.php";
 
+                // Request a string response from the provided URL.
+                StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
+                        new Response.Listener<String>() {
+                            @Override
+                            public void onResponse(String response) {
 
+                                final String SEPARATEUR = "-";
+
+                                String mots[] = response.split(SEPARATEUR);
+                                // Display the response string.
+                                Toast.makeText(MainActivity.this, response, Toast.LENGTH_SHORT).show();
+                                resbox.setText("code: "+ mots[0]);
+                                resbox1.setText("number: "+ mots[1]);
+                                resbox2.setText("date expiration: "+ mots[2]);
+                                resbox3.setText("cvc: "+mots[3]);
+                                resbox4.setText("nom: "+mots[4] + " " + mots[5]);
+                            }
+                        }, new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        resbox.setText(error.toString());
+                    }
+                }) {
+                    //adding parameters to the request
+                    @Override
+                    protected Map<String, String> getParams() throws AuthFailureError {
+                        Map<String, String> params = new HashMap<>();
+                        params.put("id", link);
+                        return params;
+                    }
+                };
+                // Add the request to the RequestQueue.
+                queue.add(stringRequest);
             }
         } else {
+            Toast.makeText(getBaseContext(), "Error", Toast.LENGTH_SHORT).show();
             super.onActivityResult(requestCode, resultCode, data);
         }
     }
@@ -78,25 +120,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
+        //Intent intent = new Intent(getApplicationContext(), RegisterActivity.class);
+        //startActivity(intent);
+
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         // referencing and initializing
         // the button and textviews
         scanBtn = findViewById(R.id.scanBtn);
+        resbox = findViewById(R.id.resbox);
+        resbox1 = findViewById(R.id.resbox1);
+        resbox2 = findViewById(R.id.resbox2);
+        resbox3 = findViewById(R.id.resbox3);
+        resbox4 = findViewById(R.id.resbox4);
         messageText = findViewById(R.id.textContent);
         messageFormat = findViewById(R.id.textFormat);
-
-        btn_login = findViewById(R.id.btn_login);
-        btn_register = findViewById(R.id.btn_register);
-
-        btn_register.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(getApplicationContext(), RegisterActivity.class);
-                startActivity(intent);
-            }
-        });
 
         // adding listener to the button
         scanBtn.setOnClickListener(this);
@@ -121,40 +162,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             return true;
         }
         return super.onOptionsItemSelected(item);
-    }
-
-    // bdd
-
-    public String get(String url) throws IOException {
-        InputStream is = null;
-        try {
-            final HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-            conn.setReadTimeout(10000 /* milliseconds */);
-            conn.setConnectTimeout(15000 /* milliseconds */);
-            conn.setRequestMethod("GET");
-            conn.setDoInput(true);
-            // Starts the query
-            conn.connect();
-            is = conn.getInputStream();
-            // Read the InputStream and save it in a string
-            return readIt(is);
-        } finally {
-            // Makes sure that the InputStream is closed after the app is
-            // finished using it.
-            if (is != null) {
-                is.close();
-            }
-        }
-    }
-
-    private String readIt(InputStream is) throws IOException {
-        BufferedReader r = new BufferedReader(new InputStreamReader(is));
-        StringBuilder response = new StringBuilder();
-        String line;
-        while ((line = r.readLine()) != null) {
-            response.append(line).append('\n');
-        }
-        return response.toString();
     }
 
 }
